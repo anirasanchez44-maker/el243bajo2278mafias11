@@ -1,14 +1,13 @@
 {
-  "name": "gestor-mafias",
-  "version": "2.0.0",
-  "description": "Gestor de mafias y barras bravas con sincronización en tiempo real",
-  "type": "module",
+  "name": "mafias-realtime",
+  "version": "1.0.0",
+  "description": "Gestor de Mafias y Barras Bravas en tiempo real",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.7.2"
   }
 }

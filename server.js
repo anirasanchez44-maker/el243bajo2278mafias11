@@ -11,11 +11,10 @@ const io = new Server(server);
 const DATA_FILE = path.join(__dirname, "mafias.json");
 const LOG_FILE = path.join(__dirname, "logs.txt");
 
-// Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"))); // index.html en carpeta "public"
 
-// Inicializar archivo mafias.json si no existe
+// Inicializar mafias si no existe el archivo
 if (!fs.existsSync(DATA_FILE)) {
   const initialMafias = [];
   for (let i = 1; i <= 150; i++) {
@@ -37,39 +36,23 @@ if (!fs.existsSync(DATA_FILE)) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(initialMafias, null, 2));
 }
 
-// Leer mafias
+// Funciones
 function leerMafias() {
-  const data = fs.readFileSync(DATA_FILE, "utf-8");
-  return JSON.parse(data);
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
 }
 
-// Guardar mafias
 function guardarMafias(mafias) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(mafias, null, 2));
 }
 
-// Guardar log
 function agregarLog(detalle) {
   const fecha = new Date().toLocaleString("es-AR");
   fs.appendFileSync(LOG_FILE, `[${fecha}] ${detalle}\n`);
 }
 
-// Rutas HTTP
-app.get("/mafias", (req, res) => {
-  const mafias = leerMafias();
-  res.json(mafias);
-});
-
-app.post("/log", (req, res) => {
-  const { detalles } = req.body;
-  if (detalles) agregarLog(detalles);
-  res.sendStatus(200);
-});
-
+// Rutas
 app.get("/download-logs", (req, res) => {
-  if (!fs.existsSync(LOG_FILE)) {
-    fs.writeFileSync(LOG_FILE, "");
-  }
+  if (!fs.existsSync(LOG_FILE)) fs.writeFileSync(LOG_FILE, "");
   res.download(LOG_FILE, "logs.txt");
 });
 
@@ -77,17 +60,18 @@ app.get("/download-logs", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Cliente conectado:", socket.id);
 
-  // Enviar mafias actuales al cliente nuevo
+  // Enviar mafias al cliente
   socket.emit("mafias-actualizadas", leerMafias());
 
-  // Crear o actualizar mafia
+  // Guardar o actualizar mafia
   socket.on("guardar-mafia", (mafia) => {
     let mafias = leerMafias();
     const index = mafias.findIndex((m) => m.id === mafia.id);
+
     if (index >= 0) {
-      // Editar existente
       const before = { ...mafias[index] };
       mafias[index] = mafia;
+
       agregarLog(`EDITAR ${mafia.tipo === "mafia" ? "Mafia #" + mafia.numero : 'Barra "' + mafia.nombre + '"'}
 idJefe: ${before.idJefe} -> ${mafia.idJefe}
 sede: ${before.sede} -> ${mafia.sede}
@@ -97,7 +81,6 @@ agregados: ${before.agregados} -> ${mafia.agregados}
 diaCreacion: ${before.diaCreacion} -> ${mafia.diaCreacion}
 vencimiento: ${before.vencimiento} -> ${mafia.vencimiento}`);
     } else {
-      // Crear nueva
       mafias.push(mafia);
       agregarLog(`CREAR ${mafia.tipo === "mafia" ? "Mafia #" + mafia.numero : 'Barra "' + mafia.nombre + '"'}
 idJefe: -> ${mafia.idJefe}
@@ -108,6 +91,7 @@ agregados: -> ${mafia.agregados}
 diaCreacion: -> ${mafia.diaCreacion}
 vencimiento: -> ${mafia.vencimiento}`);
     }
+
     guardarMafias(mafias);
     io.emit("mafias-actualizadas", mafias);
   });
@@ -131,9 +115,7 @@ vencimiento: ${removed.vencimiento}`);
     }
   });
 
-  socket.on("disconnect", () => {
-    console.log("Cliente desconectado:", socket.id);
-  });
+  socket.on("disconnect", () => console.log("Cliente desconectado:", socket.id));
 });
 
 // Puerto
