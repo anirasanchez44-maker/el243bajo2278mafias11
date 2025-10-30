@@ -48,7 +48,6 @@ form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;bo
 <button id="btn-nueva-mafia">➕ Crear Mafia / Barra</button>
 <button id="btn-descargar-logs">📥 Descargar Logs</button>
 </div>
-
 <section id="lista-mafias" class="lista-mafias">
 <div class="tarjeta-placeholder">Cargando...</div>
 </section>
@@ -56,7 +55,7 @@ form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;bo
 
 <!-- Modal -->
 <div id="modal-mafia" class="modal">
-<div class="modal-contenido">
+<div class="modal-contenido">F
 <span class="cerrar-modal">&times;</span>
 <h3 id="modal-titulo">Crear Registro</h3>
 <form id="form-mafia">
@@ -65,7 +64,6 @@ form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;bo
 <option value="mafia">Mafia</option>
 <option value="barra">Barra Brava</option>
 </select>
-
 <div id="campos-mafia">
 <label for="nivel">Nivel:</label>
 <select id="nivel">
@@ -77,12 +75,10 @@ form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;bo
 <label for="numero">Número:</label>
 <input type="number" id="numero" readonly>
 </div>
-
 <div id="campos-barra" style="display:none">
 <label for="nombre-barra">Nombre Barra:</label>
 <input type="text" id="nombre-barra" placeholder="Ej: Los del Fondo">
 </div>
-
 <label for="id-jefe">ID Jefe:</label>
 <input type="text" id="id-jefe">
 <label for="sede">Sede:</label>
@@ -97,7 +93,6 @@ form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;bo
 <input type="date" id="dia-creacion">
 <label for="vencimiento">Vencimiento:</label>
 <input type="date" id="vencimiento">
-
 <div class="acciones-modal">
 <button type="submit" class="btn-primario">Guardar</button>
 <button type="button" id="btn-renovar" class="btn-secundario">Renovar +1 mes</button>
@@ -111,61 +106,187 @@ form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;bo
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
+
+/* -----------------------
+   Datos locales y utilidades
+------------------------- */
 let mafias = [];
-
-socket.on("actualizar", data => {
-  mafias = data;
-  mostrarMafias();
-});
-
 function calcularEstado(m){
-  if(!m.diaCreacion||!m.vencimiento)return"Disponible";
+  if(!m.diaCreacion||!m.vencimiento) return "Disponible";
   const hoy=new Date(),cre=new Date(m.diaCreacion),ven=new Date(m.vencimiento);
-  hoy.setHours(0,0,0,0);
-  if(ven<hoy)return"Vencida";
+  hoy.setHours(0,0,0,0);cre.setHours(0,0,0,0);ven.setHours(0,0,0,0);
+  if(ven<hoy)return "Vencida";
   const diff=(ven-hoy)/(1000*60*60*24);
-  if(diff<=5)return"Por vencer";
-  if(cre<=hoy&&ven>hoy)return"Activa";
-  return"Disponible";
+  if(diff<=5)return "Por vencer";
+  if(cre<=hoy&&ven>hoy)return "Activa";
+  return "Disponible";
 }
 
+/* -------------------------
+   Renderizar lista
+------------------------- */
 function mostrarMafias(){
   const lista=document.getElementById("lista-mafias");
+  const filtro=document.getElementById("filtro-estado").value;
+  const texto=document.getElementById("buscador").value.toLowerCase();
   lista.innerHTML="";
   mafias.forEach(m=>{
-    const estado=calcularEstado(m);
-    let color="estado-disponible";
-    if(estado==="Activa")color="estado-activa";
-    else if(estado==="Por vencer")color="estado-por-vencer";
-    else if(estado==="Vencida")color="estado-vencida";
+    m.estado = calcularEstado(m);
+  });
+  const filtradas=mafias.filter(m=>{
+    const coincideEstado = filtro==="todos"
+      || (m.tipo==="mafia" && m.estado.toLowerCase()===filtro.toLowerCase())
+      || (m.tipo==="barra" && filtro==="barra");
+    const cadenaBusqueda = m.tipo==="mafia"?`#${m.numero} ${m.idJefe} ${m.sede}`.toLowerCase()
+                                  :`${m.nombre} ${m.idJefe} ${m.sede}`.toLowerCase();
+    return coincideEstado && cadenaBusqueda.includes(texto);
+  });
+  if(filtradas.length===0){
+    lista.innerHTML=`<div class="tarjeta-placeholder">No se encontraron registros.</div>`;
+    return;
+  }
+  filtradas.forEach(m=>{
     const d=document.createElement("div");
-    d.className="tarjeta-mafia "+color;
-    d.innerHTML = `
-      <h4>${m.tipo==="barra"?m.nombre:`Mafia #${m.numero}`}</h4>
-      <p><b>${m.nivel}</b></p>
-      ${m.vencimiento?`<p><b>Vence:</b> ${m.vencimiento}</p>`:""}
-    `;
-    d.onclick=()=>abrirModal(m.id);
+    let colorClase="estado-disponible";
+    if(m.estado==="Activa") colorClase="estado-activa";
+    else if(m.estado==="Por vencer") colorClase="estado-por-vencer";
+    else if(m.estado==="Vencida") colorClase="estado-vencida";
+    d.className="tarjeta-mafia "+colorClase;
+    d.innerHTML = `<h4>${m.tipo==="barra"?m.nombre:"Mafia #"+m.numero}</h4>
+                   ${m.tipo==="mafia"?`<p><b>Nivel:</b> ${m.nivel}</p>`:""}
+                   ${m.vencimiento?`<p><b>Vence:</b> ${m.vencimiento}</p>`:""}`;
+    d.onclick = ()=>abrirModal(m.id);
     lista.appendChild(d);
   });
 }
 
-async function registrarLog(accion, tipo, identificador, before, after){
-  await fetch("/log",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({accion,tipo,identificador,before,after})
-  });
+/* -------------------------
+   Modal y formulario
+------------------------- */
+const modal=document.getElementById("modal-mafia");
+const cerrarModalBtn=document.querySelector(".cerrar-modal");
+const form=document.getElementById("form-mafia");
+const tipoSelect=document.getElementById("tipo");
+const camposMafia=document.getElementById("campos-mafia");
+const camposBarra=document.getElementById("campos-barra");
+const numeroInput=document.getElementById("numero");
+const btnRenovar=document.getElementById("btn-renovar");
+const btnCerrar=document.getElementById("btn-cerrar-mafia");
+let mafiaActual=null;
+
+function abrirModal(id=null){
+  modal.style.display="block";
+  mafiaActual = mafias.find(m=>m.id===id) || null;
+  tipoSelect.value = mafiaActual ? mafiaActual.tipo : "mafia";
+  actualizarCampos();
+  if(mafiaActual){
+    document.getElementById("nivel").value=mafiaActual.nivel;
+    numeroInput.value=mafiaActual.numero;
+    document.getElementById("nombre-barra").value=mafiaActual.nombre;
+    document.getElementById("id-jefe").value=mafiaActual.idJefe;
+    document.getElementById("sede").value=mafiaActual.sede;
+    document.getElementById("precio").value=mafiaActual.precio;
+    document.getElementById("vehiculos").value=mafiaActual.vehiculos;
+    document.getElementById("agregados").value=mafiaActual.agregados;
+    document.getElementById("dia-creacion").value=mafiaActual.diaCreacion;
+    document.getElementById("vencimiento").value=mafiaActual.vencimiento;
+  }else{
+    form.reset();
+    numeroInput.value = mafias.filter(m=>m.tipo==="mafia").length + 1;
+  }
 }
 
-document.getElementById("btn-descargar-logs").onclick=async()=>{
-  const res=await fetch("/download-logs");
-  const blob=await res.blob();
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;a.download="logs.txt";a.click();
-  URL.revokeObjectURL(url);
+function actualizarCampos(){
+  if(tipoSelect.value==="barra"){
+    camposMafia.style.display="none";
+    camposBarra.style.display="block";
+    btnRenovar.style.display="none";
+  }else{
+    camposMafia.style.display="block";
+    camposBarra.style.display="none";
+    btnRenovar.style.display="inline-block";
+  }
+}
+
+tipoSelect.addEventListener("change", actualizarCampos);
+cerrarModalBtn.onclick=()=>modal.style.display="none";
+window.onclick=e=>{if(e.target===modal) modal.style.display="none";}
+
+/* -------------------------
+   Crear/Editar Mafia/Barra
+------------------------- */
+form.onsubmit = e => {
+  e.preventDefault();
+  const tipo = tipoSelect.value;
+  const nueva = {
+    id: mafiaActual?mafiaActual.id:Date.now().toString(36),
+    tipo,
+    nivel: tipo==="mafia"?document.getElementById("nivel").value:"",
+    numero: tipo==="mafia"?numeroInput.value:"",
+    nombre: tipo==="barra"?document.getElementById("nombre-barra").value:"",
+    idJefe: document.getElementById("id-jefe").value,
+    sede: document.getElementById("sede").value,
+    precio: document.getElementById("precio").value,
+    vehiculos: document.getElementById("vehiculos").value,
+    agregados: document.getElementById("agregados").value,
+    diaCreacion: document.getElementById("dia-creacion").value,
+    vencimiento: document.getElementById("vencimiento").value
+  };
+  if(tipo==="mafia" && nueva.vencimiento && new Date(nueva.vencimiento)<new Date(nueva.diaCreacion)){
+    document.getElementById("error-fecha").style.display="block";
+    return;
+  }else document.getElementById("error-fecha").style.display="none";
+
+  socket.emit('guardar_mafia', { before: mafiaActual, after: nueva });
+  modal.style.display="none";
 };
+
+/* -------------------------
+   Renovar +1 mes
+------------------------- */
+btnRenovar.onclick = () => {
+  if(!mafiaActual || !mafiaActual.vencimiento) return;
+  let fecha = new Date(mafiaActual.vencimiento);
+  fecha.setMonth(fecha.getMonth()+1);
+  mafiaActual.vencimiento = fecha.toISOString().slice(0,10);
+  socket.emit('guardar_mafia', { before: mafiaActual, after: mafiaActual });
+};
+
+/* -------------------------
+   Cerrar / Vaciar / Eliminar
+------------------------- */
+btnCerrar.onclick = () => {
+  if(!mafiaActual) return;
+  socket.emit('cerrar_mafia', mafiaActual);
+  modal.style.display="none";
+};
+
+document.getElementById("btn-nueva-mafia").onclick = ()=>abrirModal();
+document.getElementById("filtro-estado").onchange = mostrarMafias;
+document.getElementById("buscador").oninput = mostrarMafias;
+
+/* -------------------------
+   Descargar logs
+------------------------- */
+document.getElementById("btn-descargar-logs").onclick = async () => {
+  const res = await fetch('/download-logs');
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'logs.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
+
+/* -------------------------
+   Socket.IO listeners
+------------------------- */
+socket.on('cargar_mafias', data => { mafias = data; mostrarMafias(); });
+socket.on('actualizar', data => { mafias = data; mostrarMafias(); });
+
 </script>
 </body>
 </html>

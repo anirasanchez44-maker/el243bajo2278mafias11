@@ -1,13 +1,18 @@
 {
-  "name": "mafias-elbajo",
+  "name": "gestor-mafias",
   "version": "1.0.0",
+  "description": "Gestor de Mafias y Barras Bravas con sincronización en tiempo real",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "express": "^4.18.2",
     "socket.io": "^4.7.2"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
 }
