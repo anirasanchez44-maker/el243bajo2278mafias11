@@ -1,7 +1,7 @@
 const express = require("express");
+const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
@@ -11,122 +11,131 @@ const io = new Server(server);
 const DATA_FILE = path.join(__dirname, "mafias.json");
 const LOG_FILE = path.join(__dirname, "logs.txt");
 
+// Middleware
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, "public")));
 
-// -------------------------
-// Utilidades de datos
-// -------------------------
-function cargarMafias() {
-  if (!fs.existsSync(DATA_FILE)) {
-    // Inicializar 150 mafias vacías
-    const inicial = [];
-    for (let i = 1; i <= 150; i++) {
-      inicial.push({
-        id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-        tipo: "mafia",
-        nivel: "Nivel 1",
-        numero: i,
-        nombre: "",
-        idJefe: "",
-        sede: "",
-        precio: 0,
-        vehiculos: "",
-        agregados: "",
-        diaCreacion: "",
-        vencimiento: ""
-      });
-    }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(inicial, null, 2));
-    return inicial;
+// Inicializar archivo mafias.json si no existe
+if (!fs.existsSync(DATA_FILE)) {
+  const initialMafias = [];
+  for (let i = 1; i <= 150; i++) {
+    initialMafias.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      tipo: "mafia",
+      nivel: "Nivel 1",
+      numero: i,
+      nombre: "",
+      idJefe: "",
+      sede: "",
+      precio: 0,
+      vehiculos: "",
+      agregados: "",
+      diaCreacion: "",
+      vencimiento: ""
+    });
   }
-  return JSON.parse(fs.readFileSync(DATA_FILE));
+  fs.writeFileSync(DATA_FILE, JSON.stringify(initialMafias, null, 2));
 }
 
-function guardarMafias(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+// Leer mafias
+function leerMafias() {
+  const data = fs.readFileSync(DATA_FILE, "utf-8");
+  return JSON.parse(data);
 }
 
-function registrarLog(detalle) {
-  const timestamp = new Date().toLocaleString("es-AR");
-  const linea = `[${timestamp}] ${detalle}\n`;
-  fs.appendFileSync(LOG_FILE, linea);
+// Guardar mafias
+function guardarMafias(mafias) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(mafias, null, 2));
 }
 
-// -------------------------
-// Endpoints
-// -------------------------
+// Guardar log
+function agregarLog(detalle) {
+  const fecha = new Date().toLocaleString("es-AR");
+  fs.appendFileSync(LOG_FILE, `[${fecha}] ${detalle}\n`);
+}
+
+// Rutas HTTP
 app.get("/mafias", (req, res) => {
-  res.json(cargarMafias());
-});
-
-app.post("/mafias", (req, res) => {
-  const mafias = cargarMafias();
-  const nuevo = req.body;
-  mafias.push(nuevo);
-  guardarMafias(mafias);
-  registrarLog(`CREADO ${nuevo.tipo==="mafia"?`Mafia #${nuevo.numero}`:`Barra "${nuevo.nombre}"`}`);
-  io.emit("update", mafias);
-  res.json({ ok: true });
-});
-
-app.put("/mafias/:id", (req, res) => {
-  const mafias = cargarMafias();
-  const id = req.params.id;
-  const index = mafias.findIndex(m => m.id === id);
-  if (index === -1) return res.status(404).json({ error: "No encontrado" });
-
-  const before = { ...mafias[index] };
-  mafias[index] = req.body;
-  guardarMafias(mafias);
-
-  // Crear log detallado
-  const campos = ["tipo","nivel","numero","nombre","idJefe","sede","precio","vehiculos","agregados","diaCreacion","vencimiento"];
-  let detalles = `EDITAR ${mafias[index].tipo==="mafia"?`Mafia #${mafias[index].numero}`:`Barra "${mafias[index].nombre}"`}\n`;
-  campos.forEach(c => {
-    const b = before[c] === undefined ? "" : before[c];
-    const a = mafias[index][c] === undefined ? "" : mafias[index][c];
-    if (b !== a) detalles += `${c}: ${b} -> ${a}\n`;
-  });
-  registrarLog(detalles.trim());
-  io.emit("update", mafias);
-  res.json({ ok: true });
-});
-
-app.delete("/mafias/:id", (req, res) => {
-  const mafias = cargarMafias();
-  const id = req.params.id;
-  const index = mafias.findIndex(m => m.id === id);
-  if (index === -1) return res.status(404).json({ error: "No encontrado" });
-
-  const before = mafias[index];
-  mafias.splice(index, 1);
-  guardarMafias(mafias);
-  registrarLog(`ELIMINADO ${before.tipo==="mafia"?`Mafia #${before.numero}`:`Barra "${before.nombre}"`}`);
-  io.emit("update", mafias);
-  res.json({ ok: true });
+  const mafias = leerMafias();
+  res.json(mafias);
 });
 
 app.post("/log", (req, res) => {
   const { detalles } = req.body;
-  if (detalles) registrarLog(detalles);
-  res.json({ ok: true });
+  if (detalles) agregarLog(detalles);
+  res.sendStatus(200);
 });
 
 app.get("/download-logs", (req, res) => {
+  if (!fs.existsSync(LOG_FILE)) {
+    fs.writeFileSync(LOG_FILE, "");
+  }
   res.download(LOG_FILE, "logs.txt");
 });
 
-// -------------------------
-// Socket.IO para sincronización
-// -------------------------
+// Socket.IO
 io.on("connection", (socket) => {
-  console.log("Nuevo cliente conectado");
-  socket.emit("update", cargarMafias());
+  console.log("Cliente conectado:", socket.id);
+
+  // Enviar mafias actuales al cliente nuevo
+  socket.emit("mafias-actualizadas", leerMafias());
+
+  // Crear o actualizar mafia
+  socket.on("guardar-mafia", (mafia) => {
+    let mafias = leerMafias();
+    const index = mafias.findIndex((m) => m.id === mafia.id);
+    if (index >= 0) {
+      // Editar existente
+      const before = { ...mafias[index] };
+      mafias[index] = mafia;
+      agregarLog(`EDITAR ${mafia.tipo === "mafia" ? "Mafia #" + mafia.numero : 'Barra "' + mafia.nombre + '"'}
+idJefe: ${before.idJefe} -> ${mafia.idJefe}
+sede: ${before.sede} -> ${mafia.sede}
+precio: ${before.precio} -> ${mafia.precio}
+vehiculos: ${before.vehiculos} -> ${mafia.vehiculos}
+agregados: ${before.agregados} -> ${mafia.agregados}
+diaCreacion: ${before.diaCreacion} -> ${mafia.diaCreacion}
+vencimiento: ${before.vencimiento} -> ${mafia.vencimiento}`);
+    } else {
+      // Crear nueva
+      mafias.push(mafia);
+      agregarLog(`CREAR ${mafia.tipo === "mafia" ? "Mafia #" + mafia.numero : 'Barra "' + mafia.nombre + '"'}
+idJefe: -> ${mafia.idJefe}
+sede: -> ${mafia.sede}
+precio: 0 -> ${mafia.precio}
+vehiculos: -> ${mafia.vehiculos}
+agregados: -> ${mafia.agregados}
+diaCreacion: -> ${mafia.diaCreacion}
+vencimiento: -> ${mafia.vencimiento}`);
+    }
+    guardarMafias(mafias);
+    io.emit("mafias-actualizadas", mafias);
+  });
+
+  // Eliminar mafia
+  socket.on("eliminar-mafia", (id) => {
+    let mafias = leerMafias();
+    const index = mafias.findIndex((m) => m.id === id);
+    if (index >= 0) {
+      const removed = mafias.splice(index, 1)[0];
+      agregarLog(`ELIMINAR ${removed.tipo === "mafia" ? "Mafia #" + removed.numero : 'Barra "' + removed.nombre + '"'}
+idJefe: ${removed.idJefe}
+sede: ${removed.sede}
+precio: ${removed.precio}
+vehiculos: ${removed.vehiculos}
+agregados: ${removed.agregados}
+diaCreacion: ${removed.diaCreacion}
+vencimiento: ${removed.vencimiento}`);
+      guardarMafias(mafias);
+      io.emit("mafias-actualizadas", mafias);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Cliente desconectado:", socket.id);
+  });
 });
 
-// -------------------------
-// Iniciar servidor
-// -------------------------
+// Puerto
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
