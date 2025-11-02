@@ -27,12 +27,12 @@
     }
     .lista {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(5, 1fr); /* Mostrar 5 por fila */
       gap: 10px;
     }
     .tarjeta-mafia {
       background: #1e1e1e;
-      padding: 10px;
+      padding: 15px;
       border-radius: 6px;
       cursor: pointer;
       transition: background 0.2s;
@@ -299,62 +299,76 @@
       vehiculos: document.getElementById("vehiculos").value,
       agregados: document.getElementById("agregados").value,
       diaCreacion: document.getElementById("dia-creacion").value,
-      vencimiento: document.getElementById("vencimiento").value,
-      estado: "activo"
+      vencimiento: document.getElementById("vencimiento").value
     };
-    if(tipo==="mafia" && nueva.vencimiento && new Date(nueva.vencimiento)<new Date(nueva.diaCreacion)){
-      document.getElementById("error-fecha").style.display="block";
-      return;
+    // Validar fechas
+    if(nueva.diaCreacion && nueva.vencimiento){
+      if(new Date(nueva.vencimiento)<new Date(nueva.diaCreacion)){
+        document.getElementById("error-fecha").style.display="block";
+        return;
+      } else document.getElementById("error-fecha").style.display="none";
     }
-    socket.emit("guardar-mafia", nueva);
-    modal.style.display="none";
-  };
-
-  btnRenovar.onclick=function(){
-    if(!mafiaActual || !mafiaActual.vencimiento) return;
-    let fecha=new Date(mafiaActual.vencimiento);
-    fecha.setMonth(fecha.getMonth()+1);
-    socket.emit("actualizar-atributo", {
-      id: mafiaActual.id,
-      campo: "vencimiento",
-      valor: fecha.toISOString().slice(0,10)
-    });
-  };
-
-  btnCerrar.onclick=function(){
-    if(!mafiaActual) return;
-    if(mafiaActual.tipo==="mafia"){
-      const vacia={...mafiaActual,
-        idJefe:"", sede:"", precio:0,
-        vehiculos:"", agregados:"",
-        diaCreacion:"", vencimiento:"",
-        nivel:"Nivel 1"
-      };
-      socket.emit("guardar-mafia", vacia);
+    if(mafiaActual){
+      socket.emit("editar-mafia", nueva);
     } else {
-      socket.emit("eliminar-mafia", mafiaActual.id);
+      socket.emit("crear-mafia", nueva);
     }
     modal.style.display="none";
-  };
+  }
+
+  btnRenovar.onclick=()=>{
+    if(!mafiaActual) return;
+    const hoy=new Date();
+    const ven=new Date(mafiaActual.vencimiento||hoy);
+    ven.setDate(ven.getDate()+30); // +30 días
+    document.getElementById("vencimiento").value=ven.toISOString().slice(0,10);
+  }
+
+  btnCerrar.onclick=()=>{
+    if(!mafiaActual) return;
+    socket.emit("cerrar-mafia", mafiaActual.id);
+    modal.style.display="none";
+  }
 
   document.getElementById("btn-nueva-mafia").onclick=()=>abrirModal();
+
   document.getElementById("filtro-estado").onchange=mostrarMafias;
   document.getElementById("buscador").oninput=mostrarMafias;
 
-  // Botón de logs
-  const btnLogs=document.createElement("button");
-  btnLogs.textContent="📄 Logs";
-  btnLogs.style.position="fixed";
-  btnLogs.style.top="20px";
-  btnLogs.style.right="20px";
-  btnLogs.style.zIndex="1200";
-  btnLogs.style.padding="10px";
-  btnLogs.style.background="#03a9f4";
-  btnLogs.style.border="none";
-  btnLogs.style.color="#fff";
-  btnLogs.style.cursor="pointer";
+  mostrarMafias();
+
+  // --- 📄 Botón de descarga de logs ---
+  const btnLogs = document.createElement("button");
+  btnLogs.textContent = "📄 Logs";
+  btnLogs.style.position = "fixed";
+  btnLogs.style.top = "20px";
+  btnLogs.style.right = "20px";
+  btnLogs.style.zIndex = "1200";
+  btnLogs.style.padding = "10px";
+  btnLogs.style.background = "#03a9f4";
+  btnLogs.style.border = "none";
+  btnLogs.style.color = "#fff";
+  btnLogs.style.cursor = "pointer";
   document.body.appendChild(btnLogs);
-  btnLogs.onclick=()=>window.location.href="/download-logs";
+
+  btnLogs.onclick = async () => {
+    try {
+      const res = await fetch("/download-logs");
+      if (!res.ok) throw new Error("No se pudo obtener el archivo de logs");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "logs.txt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("⚠ Error al descargar los logs");
+      console.error(err);
+    }
+  };
   </script>
 </body>
 </html>
