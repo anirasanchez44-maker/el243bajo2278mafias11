@@ -1,13 +1,13 @@
 {
-  "name": "mafias-realtime",
+  "name": "mafias-server",
   "version": "1.0.0",
-  "description": "Gestor de Mafias y Barras Bravas en tiempo real",
+  "description": "Servidor en tiempo real para gestión de mafias y barras",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
   }
 }
