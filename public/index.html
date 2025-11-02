@@ -1,274 +1,360 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gestor Mafias y Barras</title>
-<style>
-/* --- tus estilos originales --- */
-body { font-family: Arial; background:#121212; color:#f0f0f0; margin:0; padding:0; display:flex; flex-direction:column; align-items:center;}
-.header{width:100%;padding:20px;background:#1e1e1e;border-bottom:3px solid #03a9f4;text-align:center;}
-.contenedor-principal{width:90%;max-width:900px;margin-bottom:40px;}
-.controles{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;padding:10px 0;border-bottom:1px solid #333;}
-input, select, button{padding:10px;border-radius:4px;border:none;background:#333;color:#fff;}
-input:hover, select:hover, button:hover{background:#555;}
-.lista-mafias{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;}
-.tarjeta-mafia{background:#1e1e1e;padding:20px;border-radius:8px;border-left:5px solid #555;cursor:pointer;text-align:center;transition:0.2s;}
-.tarjeta-mafia:hover{transform:translateY(-5px);box-shadow:0 8px 15px rgba(0,0,0,0.5);}
-.estado-activa{border-left-color:#4caf50;background-color:#223322;}
-.estado-por-vencer{border-left-color:#ffc107;background-color:#333222;}
-.estado-vencida{border-left-color:#f44336;background-color:#4a1a1a;color:#ffcccc;}
-.estado-disponible{border-left-color:#555;opacity:0.6;}
-.modal{display:none;position:fixed;z-index:1100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.85);}
-.modal-contenido{background:#1e1e1e;margin:3% auto;padding:30px;width:90%;max-width:600px;border-radius:10px;position:relative;max-height:85vh;overflow-y:auto;}
-.cerrar-modal{position:absolute;top:15px;right:20px;font-size:28px;cursor:pointer;color:#aaa;}
-form label{display:block;margin-top:15px;color:#03a9f4;font-weight:bold;}
-form input, form textarea, form select{width:100%;padding:10px;margin-top:6px;border:1px solid #333;border-radius:4px;background:#2c2c2c;color:#fff;}
-.acciones-modal{margin-top:25px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
-.btn-primario{background-color:#4caf50;}
-.btn-secundario{background-color:#03a9f4;}
-.btn-cerrar-mafia{background-color:#f44336;}
-.mensaje-error{color:#f44336;margin-top:10px;background:#4a1a1a;padding:10px;border-radius:4px;display:none;}
-.modal-contenido::-webkit-scrollbar,
-.lista-mafias::-webkit-scrollbar { width: 0px; background: transparent; }
-.modal-contenido, .lista-mafias { -ms-overflow-style: none; scrollbar-width: thin; }
-</style>
+  <meta charset="UTF-8">
+  <title>Gestión de Mafias</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .filtros {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .filtros input, .filtros select, .filtros button {
+      padding: 6px 10px;
+      border-radius: 5px;
+      border: none;
+    }
+    .lista {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .tarjeta-mafia {
+      background: #1e1e1e;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .tarjeta-mafia:hover {
+      background: #272727;
+    }
+    .estado-activa { border-left: 4px solid #4caf50; }
+    .estado-por-vencer { border-left: 4px solid #ffc107; }
+    .estado-vencida { border-left: 4px solid #f44336; }
+    .estado-disponible { border-left: 4px solid #9e9e9e; }
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      padding-top: 100px;
+      left: 0; top: 0; width: 100%; height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-contenido {
+      background-color: #1e1e1e;
+      margin: auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 400px;
+      border-radius: 10px;
+    }
+    .cerrar-modal {
+      float: right;
+      font-size: 22px;
+      cursor: pointer;
+      color: #f0f0f0;
+    }
+    form input, form select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 5px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      cursor: pointer;
+      background-color: #03a9f4;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #0288d1;
+    }
+    .error {
+      color: #f44336;
+      font-size: 13px;
+      display: none;
+    }
+  </style>
 </head>
 <body>
-<header class="header">
-<h1>Sistema de Mafias EL BAJO</h1>
-<p>Gestión centralizada de mafias y barras</p>
-</header>
+  <h1>📊 Gestión de Mafias</h1>
 
-<main class="contenedor-principal">
-<div class="controles">
-<input type="text" id="buscador" placeholder="🔍 Buscar...">
-<select id="filtro-estado">
-<option value="todos">Mostrar todo</option>
-<option value="Disponible">Disponibles</option>
-<option value="Activa">Activas</option>
-<option value="Por vencer">Por vencer</option>
-<option value="Vencida">Vencidas</option>
-<option value="barra">Solo Barras Bravas</option>
-</select>
-<button id="btn-nueva-mafia">➕ Crear Mafia / Barra</button>
-</div>
-
-<section id="lista-mafias" class="lista-mafias">
-<div class="tarjeta-placeholder">Cargando...</div>
-</section>
-</main>
-
-<!-- Modal principal -->
-<div id="modal-mafia" class="modal">
-  <div class="modal-contenido">
-    <span class="cerrar-modal">&times;</span>
-    <h3 id="modal-titulo">Crear Registro</h3>
-    <form id="form-mafia">
-      <label for="tipo">Tipo:</label>
-      <select id="tipo">
-        <option value="mafia">Mafia</option>
-        <option value="barra">Barra Brava</option>
-      </select>
-
-      <div id="campos-mafia">
-        <label for="nivel">Nivel:</label>
-        <select id="nivel">
-          <option value="Nivel 1">Nivel 1</option>
-          <option value="Nivel 2">Nivel 2</option>
-          <option value="Nivel 3">Nivel 3</option>
-          <option value="Nivel 4">Nivel 4</option>
-        </select>
-        <label for="numero">Número:</label>
-        <input type="number" id="numero" readonly>
-      </div>
-
-      <div id="campos-barra" style="display:none">
-        <label for="nombre-barra">Nombre Barra:</label>
-        <input type="text" id="nombre-barra" placeholder="Ej: Los del Fondo">
-      </div>
-
-      <label for="id-jefe">ID Jefe:</label>
-      <input type="text" id="id-jefe">
-      <label for="sede">Sede:</label>
-      <input type="text" id="sede">
-      <label for="precio">Precio:</label>
-      <input type="number" id="precio">
-      <label for="vehiculos">Vehículos:</label>
-      <textarea id="vehiculos"></textarea>
-      <label for="agregados">Agregados:</label>
-      <textarea id="agregados"></textarea>
-      <label for="dia-creacion">Día de Creación:</label>
-      <input type="date" id="dia-creacion">
-      <label for="vencimiento">Vencimiento:</label>
-      <input type="date" id="vencimiento">
-
-      <div class="acciones-modal">
-        <button type="submit" class="btn-primario">Guardar</button>
-        <button type="button" id="btn-renovar" class="btn-secundario">Renovar +1 mes</button>
-        <button type="button" id="btn-cerrar-mafia" class="btn-cerrar-mafia">Cerrar / Vaciar</button>
-      </div>
-      <p id="error-fecha" class="mensaje-error">⚠️ La fecha de vencimiento no puede ser menor a la de creación.</p>
-    </form>
+  <div class="filtros">
+    <select id="filtro-estado">
+      <option value="todos">Todos</option>
+      <option value="activa">Activas</option>
+      <option value="por vencer">Por vencer</option>
+      <option value="vencida">Vencidas</option>
+      <option value="disponible">Disponibles</option>
+      <option value="barra">Barras</option>
+    </select>
+    <input type="text" id="buscador" placeholder="Buscar...">
+    <button id="btn-nueva-mafia">➕ Nueva</button>
   </div>
-</div>
 
-<!-- 📡 Socket.IO cliente -->
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-let mafias = [];
+  <div id="lista-mafias" class="lista"></div>
 
-socket.on("connect", () => console.log("🟢 Conectado al servidor Socket.IO"));
+  <!-- Modal -->
+  <div id="modal-mafia" class="modal">
+    <div class="modal-contenido">
+      <span class="cerrar-modal">&times;</span>
+      <form id="form-mafia">
+        <label>Tipo:</label>
+        <select id="tipo">
+          <option value="mafia">Mafia</option>
+          <option value="barra">Barra</option>
+        </select>
 
-socket.on("mafias-actualizadas", (data) => {
-  mafias = data;
-  mostrarMafias();
-});
+        <div id="campos-mafia">
+          <label>Número:</label>
+          <input type="number" id="numero" readonly>
 
-socket.on("mafia-creada", (mafia) => {
-  mafias.push(mafia);
-  mostrarMafias();
-});
+          <label>Nivel:</label>
+          <select id="nivel">
+            <option value="Nivel 1">Nivel 1</option>
+            <option value="Nivel 2">Nivel 2</option>
+            <option value="Nivel 3">Nivel 3</option>
+            <option value="Nivel 4">Nivel 4</option>
+          </select>
+        </div>
 
-socket.on("mafia-editada", (mafia) => {
-  const i = mafias.findIndex(m=>m.id===mafia.id);
-  if(i>=0){mafias[i]=mafia; mostrarMafias();}
-});
+        <div id="campos-barra" style="display:none">
+          <label>Nombre de la barra:</label>
+          <input type="text" id="nombre-barra">
+        </div>
 
-socket.on("mafia-eliminada", (id) => {
-  mafias = mafias.filter(m=>m.id!==id);
-  mostrarMafias();
-});
+        <label>ID Jefe:</label>
+        <input type="text" id="id-jefe">
 
-function calcularEstado(m){
-  if(!m.diaCreacion||!m.vencimiento) return "Disponible";
-  const hoy=new Date(),cre=new Date(m.diaCreacion),ven=new Date(m.vencimiento);
-  hoy.setHours(0,0,0,0); cre.setHours(0,0,0,0); ven.setHours(0,0,0,0);
-  if(ven<hoy) return "Vencida";
-  const diff=(ven-hoy)/(1000*60*60*24);
-  if(diff<=5) return "Por vencer";
-  if(cre<=hoy&&ven>hoy) return "Activa";
-  return "Disponible";
-}
+        <label>Sede:</label>
+        <input type="text" id="sede">
 
-function mostrarMafias(){
-  const lista=document.getElementById("lista-mafias");
-  const filtro=document.getElementById("filtro-estado").value;
-  const texto=document.getElementById("buscador").value.toLowerCase();
-  lista.innerHTML="";
-  const datos=mafias.map(m=>({...m, estado: calcularEstado(m)}));
-  const filtradas=datos.filter(m=>{
-    const coincideEstado = filtro==="todos"||(m.tipo==="mafia"&&m.estado.toLowerCase()===filtro.toLowerCase())||(m.tipo==="barra"&&filtro.toLowerCase()==="barra");
-    let cadena = m.tipo==="mafia"?`#${m.numero} ${m.idJefe} ${m.sede}`.toLowerCase():`${m.nombre} ${m.idJefe} ${m.sede}`.toLowerCase();
-    return coincideEstado && cadena.includes(texto);
+        <label>Precio:</label>
+        <input type="number" id="precio">
+
+        <label>Vehículos:</label>
+        <input type="text" id="vehiculos">
+
+        <label>Agregados:</label>
+        <input type="text" id="agregados">
+
+        <label>Día de creación:</label>
+        <input type="date" id="dia-creacion">
+
+        <label>Vencimiento:</label>
+        <input type="date" id="vencimiento">
+
+        <div id="error-fecha" class="error">⚠ La fecha de vencimiento no puede ser anterior a la de creación</div>
+
+        <div style="display:flex; justify-content: space-between; margin-top:10px;">
+          <button type="submit">💾 Guardar</button>
+          <button type="button" id="btn-renovar">🔁 Renovar</button>
+          <button type="button" id="btn-cerrar-mafia">🧹 Cerrar/Vaciar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 📡 Socket.IO cliente -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+  const socket = io();
+  let mafias = [];
+
+  socket.on("connect", () => console.log("🟢 Conectado al servidor"));
+
+  // --- Eventos de servidor ---
+  socket.on("mafias-actualizadas", (data) => { mafias = data; mostrarMafias(); });
+  socket.on("mafia-creada", (m) => { mafias.push(m); mostrarMafias(); });
+  socket.on("mafia-editada", (m) => {
+    const i = mafias.findIndex(x=>x.id===m.id);
+    if(i>=0){ mafias[i]=m; mostrarMafias(); }
   });
-  if(filtradas.length===0){ lista.innerHTML=`<div class="tarjeta-placeholder">No se encontraron registros.</div>`; return; }
-  filtradas.forEach(m=>{
-    const d=document.createElement("div");
-    let clase="estado-disponible";
-    if(m.tipo==="mafia"){
-      if(m.estado==="Activa") clase="estado-activa";
-      else if(m.estado==="Por vencer") clase="estado-por-vencer";
-      else if(m.estado==="Vencida") clase="estado-vencida";
+  socket.on("mafia-eliminada", (id) => {
+    mafias = mafias.filter(m=>m.id!==id);
+    mostrarMafias();
+  });
+
+  function calcularEstado(m){
+    if(!m.diaCreacion||!m.vencimiento) return "Disponible";
+    const hoy=new Date(),cre=new Date(m.diaCreacion),ven=new Date(m.vencimiento);
+    hoy.setHours(0,0,0,0); cre.setHours(0,0,0,0); ven.setHours(0,0,0,0);
+    if(ven<hoy) return "Vencida";
+    const diff=(ven-hoy)/(1000*60*60*24);
+    if(diff<=5) return "Por vencer";
+    if(cre<=hoy&&ven>hoy) return "Activa";
+    return "Disponible";
+  }
+
+  function mostrarMafias(){
+    const lista=document.getElementById("lista-mafias");
+    const filtro=document.getElementById("filtro-estado").value;
+    const texto=document.getElementById("buscador").value.toLowerCase();
+    lista.innerHTML="";
+    const datos=mafias.map(m=>({...m, estado: calcularEstado(m)}));
+    const filtradas=datos.filter(m=>{
+      const coincide = filtro==="todos"||(m.tipo==="mafia"&&m.estado.toLowerCase()===filtro.toLowerCase())||(m.tipo==="barra"&&filtro==="barra");
+      const cadena = m.tipo==="mafia"?`#${m.numero} ${m.idJefe} ${m.sede}`.toLowerCase():`${m.nombre} ${m.idJefe} ${m.sede}`.toLowerCase();
+      return coincide && cadena.includes(texto);
+    });
+    if(filtradas.length===0){ lista.innerHTML=`<div class='tarjeta-mafia estado-disponible'>No hay registros</div>`; return; }
+    filtradas.forEach(m=>{
+      const d=document.createElement("div");
+      let clase="estado-disponible";
+      if(m.tipo==="mafia"){
+        if(m.estado==="Activa") clase="estado-activa";
+        else if(m.estado==="Por vencer") clase="estado-por-vencer";
+        else if(m.estado==="Vencida") clase="estado-vencida";
+      }
+      d.className="tarjeta-mafia "+clase;
+      d.innerHTML=`
+        <h4>${m.tipo==="barra"?m.nombre:"Mafia #"+m.numero}</h4>
+        ${m.tipo==="mafia"?`<p><b>Nivel:</b> ${m.nivel}</p>`:""}
+        ${m.vencimiento?`<p><b>Vence:</b> ${m.vencimiento}</p>`:""}
+      `;
+      d.onclick=()=>abrirModal(m.id);
+      lista.appendChild(d);
+    });
+  }
+
+  const modal=document.getElementById("modal-mafia");
+  const cerrarModalBtn=document.querySelector(".cerrar-modal");
+  const form=document.getElementById("form-mafia");
+  const tipoSelect=document.getElementById("tipo");
+  const camposMafia=document.getElementById("campos-mafia");
+  const camposBarra=document.getElementById("campos-barra");
+  const numeroInput=document.getElementById("numero");
+  const btnRenovar=document.getElementById("btn-renovar");
+  const btnCerrar=document.getElementById("btn-cerrar-mafia");
+  let mafiaActual=null;
+
+  function abrirModal(id=null){
+    modal.style.display="block";
+    mafiaActual=mafias.find(m=>m.id===id)||null;
+    tipoSelect.value=mafiaActual?mafiaActual.tipo:"mafia";
+    actualizarCampos();
+    if(mafiaActual){
+      document.getElementById("nivel").value=mafiaActual.nivel;
+      numeroInput.value=mafiaActual.numero;
+      document.getElementById("nombre-barra").value=mafiaActual.nombre||"";
+      document.getElementById("id-jefe").value=mafiaActual.idJefe;
+      document.getElementById("sede").value=mafiaActual.sede;
+      document.getElementById("precio").value=mafiaActual.precio;
+      document.getElementById("vehiculos").value=mafiaActual.vehiculos;
+      document.getElementById("agregados").value=mafiaActual.agregados;
+      document.getElementById("dia-creacion").value=mafiaActual.diaCreacion;
+      document.getElementById("vencimiento").value=mafiaActual.vencimiento;
+    }else{
+      form.reset();
+      numeroInput.value = mafias.filter(m=>m.tipo==="mafia").length + 1;
     }
-    d.className="tarjeta-mafia "+clase;
-    d.innerHTML=`<h4>${m.tipo==="barra"?m.nombre:"Mafia #"+m.numero}</h4>${m.tipo==="mafia"?`<p><b>Nivel:</b> ${m.nivel}</p>`:""}${m.vencimiento?`<p><b>Vence:</b> ${m.vencimiento}</p>`:""}`;
-    d.onclick=()=>abrirModal(m.id);
-    lista.appendChild(d);
-  });
-}
-
-// --- Modal y formulario ---
-const modal=document.getElementById("modal-mafia");
-const cerrarModalBtn=document.querySelector(".cerrar-modal");
-const form=document.getElementById("form-mafia");
-const tipoSelect=document.getElementById("tipo");
-const camposMafia=document.getElementById("campos-mafia");
-const camposBarra=document.getElementById("campos-barra");
-const numeroInput=document.getElementById("numero");
-const btnRenovar=document.getElementById("btn-renovar");
-const btnCerrar=document.getElementById("btn-cerrar-mafia");
-let mafiaActual=null;
-
-function abrirModal(id=null){
-  modal.style.display="block";
-  mafiaActual=mafias.find(m=>m.id===id)||null;
-  tipoSelect.value=mafiaActual?mafiaActual.tipo:"mafia";
-  actualizarCampos();
-  if(mafiaActual){
-    document.getElementById("nivel").value=mafiaActual.nivel;
-    numeroInput.value=mafiaActual.numero;
-    document.getElementById("nombre-barra").value=mafiaActual.nombre||"";
-    document.getElementById("id-jefe").value=mafiaActual.idJefe;
-    document.getElementById("sede").value=mafiaActual.sede;
-    document.getElementById("precio").value=mafiaActual.precio;
-    document.getElementById("vehiculos").value=mafiaActual.vehiculos;
-    document.getElementById("agregados").value=mafiaActual.agregados;
-    document.getElementById("dia-creacion").value=mafiaActual.diaCreacion;
-    document.getElementById("vencimiento").value=mafiaActual.vencimiento;
-  }else{
-    form.reset();
-    numeroInput.value = mafias.filter(m=>m.tipo==="mafia").length + 1;
+    numeroInput.readOnly = true;
   }
-}
 
-function actualizarCampos(){
-  if(tipoSelect.value==="barra"){ camposMafia.style.display="none"; camposBarra.style.display="block"; btnRenovar.style.display="none"; }
-  else { camposMafia.style.display="block"; camposBarra.style.display="none"; btnRenovar.style.display="inline-block"; }
-}
+  function actualizarCampos(){
+    if(tipoSelect.value==="barra"){
+      camposMafia.style.display="none";
+      camposBarra.style.display="block";
+      btnRenovar.style.display="none";
+    } else {
+      camposMafia.style.display="block";
+      camposBarra.style.display="none";
+      btnRenovar.style.display="inline-block";
+    }
+  }
 
-tipoSelect.addEventListener("change", actualizarCampos);
-cerrarModalBtn.onclick=()=>modal.style.display="none";
-window.onclick=e=>{ if(e.target===modal) modal.style.display="none"; }
+  tipoSelect.addEventListener("change", actualizarCampos);
+  cerrarModalBtn.onclick=()=>modal.style.display="none";
+  window.onclick=e=>{ if(e.target===modal) modal.style.display="none"; }
 
-form.onsubmit=function(e){
-  e.preventDefault();
-  const tipo=tipoSelect.value;
-  const nueva={
-    id: mafiaActual?mafiaActual.id:null,
-    tipo,
-    nivel: tipo==="mafia"?document.getElementById("nivel").value:"",
-    numero: tipo==="mafia"?numeroInput.value:"",
-    nombre: tipo==="barra"?document.getElementById("nombre-barra").value:"",
-    idJefe: document.getElementById("id-jefe").value,
-    sede: document.getElementById("sede").value,
-    precio: document.getElementById("precio").value,
-    vehiculos: document.getElementById("vehiculos").value,
-    agregados: document.getElementById("agregados").value,
-    diaCreacion: document.getElementById("dia-creacion").value,
-    vencimiento: document.getElementById("vencimiento").value,
-    estado: "activo"
+  form.onsubmit=function(e){
+    e.preventDefault();
+    const tipo=tipoSelect.value;
+    const nueva={
+      id: mafiaActual?mafiaActual.id:null,
+      tipo,
+      nivel: tipo==="mafia"?document.getElementById("nivel").value:"",
+      numero: tipo==="mafia"?numeroInput.value:"",
+      nombre: tipo==="barra"?document.getElementById("nombre-barra").value:"",
+      idJefe: document.getElementById("id-jefe").value,
+      sede: document.getElementById("sede").value,
+      precio: document.getElementById("precio").value,
+      vehiculos: document.getElementById("vehiculos").value,
+      agregados: document.getElementById("agregados").value,
+      diaCreacion: document.getElementById("dia-creacion").value,
+      vencimiento: document.getElementById("vencimiento").value,
+      estado: "activo"
+    };
+    if(tipo==="mafia" && nueva.vencimiento && new Date(nueva.vencimiento)<new Date(nueva.diaCreacion)){
+      document.getElementById("error-fecha").style.display="block";
+      return;
+    }
+    socket.emit("guardar-mafia", nueva);
+    modal.style.display="none";
   };
-  if(tipo==="mafia" && nueva.vencimiento && new Date(nueva.vencimiento)<new Date(nueva.diaCreacion)){
-    document.getElementById("error-fecha").style.display="block";
-    return;
-  }
-  socket.emit("guardar-mafia", nueva);
-  modal.style.display="none";
-};
 
-btnRenovar.onclick=function(){
-  if(!mafiaActual || !mafiaActual.vencimiento) return;
-  let fecha=new Date(mafiaActual.vencimiento);
-  fecha.setMonth(fecha.getMonth()+1);
-  socket.emit("actualizar-atributo", { id: mafiaActual.id, campo: "vencimiento", valor: fecha.toISOString().slice(0,10) });
-};
+  btnRenovar.onclick=function(){
+    if(!mafiaActual || !mafiaActual.vencimiento) return;
+    let fecha=new Date(mafiaActual.vencimiento);
+    fecha.setMonth(fecha.getMonth()+1);
+    socket.emit("actualizar-atributo", {
+      id: mafiaActual.id,
+      campo: "vencimiento",
+      valor: fecha.toISOString().slice(0,10)
+    });
+  };
 
-btnCerrar.onclick=function(){
-  if(!mafiaActual) return;
-  if(mafiaActual.tipo==="mafia"){
-    const vacia={...mafiaActual, idJefe:"", sede:"", precio:0, vehiculos:"", agregados:"", diaCreacion:"", vencimiento:"", nivel:"Nivel 1"};
-    socket.emit("guardar-mafia", vacia);
-  } else {
-    socket.emit("eliminar-mafia", mafiaActual.id);
-  }
-  modal.style.display="none";
-};
+  btnCerrar.onclick=function(){
+    if(!mafiaActual) return;
+    if(mafiaActual.tipo==="mafia"){
+      const vacia={...mafiaActual,
+        idJefe:"", sede:"", precio:0,
+        vehiculos:"", agregados:"",
+        diaCreacion:"", vencimiento:"",
+        nivel:"Nivel 1"
+      };
+      socket.emit("guardar-mafia", vacia);
+    } else {
+      socket.emit("eliminar-mafia", mafiaActual.id);
+    }
+    modal.style.display="none";
+  };
 
-document.getElementById("btn-nueva-mafia").onclick=()=>abrirModal();
-document.getElementById("filtro-estado").onchange=mostrarMafias;
-document.getElementById("buscador").oninput=mostrarMafias;
-</script>
+  document.getElementById("btn-nueva-mafia").onclick=()=>abrirModal();
+  document.getElementById("filtro-estado").onchange=mostrarMafias;
+  document.getElementById("buscador").oninput=mostrarMafias;
+
+  // Botón de logs
+  const btnLogs=document.createElement("button");
+  btnLogs.textContent="📄 Logs";
+  btnLogs.style.position="fixed";
+  btnLogs.style.top="20px";
+  btnLogs.style.right="20px";
+  btnLogs.style.zIndex="1200";
+  btnLogs.style.padding="10px";
+  btnLogs.style.background="#03a9f4";
+  btnLogs.style.border="none";
+  btnLogs.style.color="#fff";
+  btnLogs.style.cursor="pointer";
+  document.body.appendChild(btnLogs);
+  btnLogs.onclick=()=>window.location.href="/download-logs";
+  </script>
 </body>
 </html>
