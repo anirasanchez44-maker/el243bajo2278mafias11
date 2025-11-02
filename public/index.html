@@ -27,8 +27,8 @@
     }
     .lista {
       display: grid;
-      grid-template-columns: repeat(5, 1fr); /* Mostrar 5 por fila */
-      gap: 10px;
+      grid-template-columns: repeat(5, 1fr); /* 5 mafias por fila */
+      gap: 15px;
     }
     .tarjeta-mafia {
       background: #1e1e1e;
@@ -90,6 +90,23 @@
       color: #f44336;
       font-size: 13px;
       display: none;
+    }
+
+    /* Botón de logs */
+    #btnLogs {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1200;
+      padding: 12px 16px;
+      height: 50px;
+      width: 120px;
+      background: #03a9f4;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 6px;
     }
   </style>
 </head>
@@ -263,36 +280,32 @@
       document.getElementById("vencimiento").value=mafiaActual.vencimiento;
     }else{
       form.reset();
-      numeroInput.value = mafias.filter(m=>m.tipo==="mafia").length + 1;
+      numeroInput.value = mafias.filter(m=>m.tipo==="mafia").length+1;
     }
-    numeroInput.readOnly = true;
   }
 
   function actualizarCampos(){
-    if(tipoSelect.value==="barra"){
-      camposMafia.style.display="none";
-      camposBarra.style.display="block";
-      btnRenovar.style.display="none";
-    } else {
+    if(tipoSelect.value==="mafia"){
       camposMafia.style.display="block";
       camposBarra.style.display="none";
-      btnRenovar.style.display="inline-block";
+    }else{
+      camposMafia.style.display="none";
+      camposBarra.style.display="block";
     }
   }
 
   tipoSelect.addEventListener("change", actualizarCampos);
   cerrarModalBtn.onclick=()=>modal.style.display="none";
-  window.onclick=e=>{ if(e.target===modal) modal.style.display="none"; }
+  window.onclick=(e)=>{ if(e.target===modal) modal.style.display="none"; };
 
-  form.onsubmit=function(e){
+  form.onsubmit=(e)=>{
     e.preventDefault();
-    const tipo=tipoSelect.value;
-    const nueva={
-      id: mafiaActual?mafiaActual.id:null,
-      tipo,
-      nivel: tipo==="mafia"?document.getElementById("nivel").value:"",
-      numero: tipo==="mafia"?numeroInput.value:"",
-      nombre: tipo==="barra"?document.getElementById("nombre-barra").value:"",
+    const m={
+      id: mafiaActual?mafiaActual.id:Date.now(),
+      tipo: tipoSelect.value,
+      numero: numeroInput.value,
+      nivel: document.getElementById("nivel").value,
+      nombre: document.getElementById("nombre-barra").value,
       idJefe: document.getElementById("id-jefe").value,
       sede: document.getElementById("sede").value,
       precio: document.getElementById("precio").value,
@@ -301,74 +314,43 @@
       diaCreacion: document.getElementById("dia-creacion").value,
       vencimiento: document.getElementById("vencimiento").value
     };
-    // Validar fechas
-    if(nueva.diaCreacion && nueva.vencimiento){
-      if(new Date(nueva.vencimiento)<new Date(nueva.diaCreacion)){
-        document.getElementById("error-fecha").style.display="block";
-        return;
-      } else document.getElementById("error-fecha").style.display="none";
-    }
-    if(mafiaActual){
-      socket.emit("editar-mafia", nueva);
-    } else {
-      socket.emit("crear-mafia", nueva);
-    }
+    const fechaCre=document.getElementById("dia-creacion").value;
+    const fechaVen=document.getElementById("vencimiento").value;
+    if(fechaCre&&fechaVen&&new Date(fechaVen)<new Date(fechaCre)){
+      document.getElementById("error-fecha").style.display="block"; return;
+    }else document.getElementById("error-fecha").style.display="none";
+
+    if(mafiaActual) socket.emit("guardar-mafia", m);
+    else socket.emit("guardar-mafia", m);
     modal.style.display="none";
-  }
+  };
 
   btnRenovar.onclick=()=>{
-    if(!mafiaActual) return;
-    const hoy=new Date();
-    const ven=new Date(mafiaActual.vencimiento||hoy);
-    ven.setDate(ven.getDate()+30); // +30 días
-    document.getElementById("vencimiento").value=ven.toISOString().slice(0,10);
-  }
-
+    if(mafiaActual){
+      mafiaActual.vencimiento=null;
+      socket.emit("guardar-mafia", mafiaActual);
+      modal.style.display="none";
+    }
+  };
   btnCerrar.onclick=()=>{
-    if(!mafiaActual) return;
-    socket.emit("cerrar-mafia", mafiaActual.id);
+    if(mafiaActual) socket.emit("eliminar-mafia", mafiaActual.id);
     modal.style.display="none";
-  }
+  };
 
   document.getElementById("btn-nueva-mafia").onclick=()=>abrirModal();
 
   document.getElementById("filtro-estado").onchange=mostrarMafias;
   document.getElementById("buscador").oninput=mostrarMafias;
 
-  mostrarMafias();
-
-  // --- 📄 Botón de descarga de logs ---
-  const btnLogs = document.createElement("button");
-  btnLogs.textContent = "📄 Logs";
-  btnLogs.style.position = "fixed";
-  btnLogs.style.top = "20px";
-  btnLogs.style.right = "20px";
-  btnLogs.style.zIndex = "1200";
-  btnLogs.style.padding = "10px";
-  btnLogs.style.background = "#03a9f4";
-  btnLogs.style.border = "none";
-  btnLogs.style.color = "#fff";
-  btnLogs.style.cursor = "pointer";
+  // --- Logs ---
+  const btnLogs=document.createElement("button");
+  btnLogs.id="btnLogs";
+  btnLogs.innerText="📜 Logs";
+  btnLogs.onclick=()=>window.open("/logs.txt","_blank");
   document.body.appendChild(btnLogs);
 
-  btnLogs.onclick = async () => {
-    try {
-      const res = await fetch("/download-logs");
-      if (!res.ok) throw new Error("No se pudo obtener el archivo de logs");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "logs.txt";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert("⚠ Error al descargar los logs");
-      console.error(err);
-    }
-  };
+  mostrarMafias();
   </script>
 </body>
 </html>
+
